@@ -29,6 +29,8 @@
    VEC_VEC = prod2(NUM1S) + prod2(LOGICAL1S)
    MAT_VEC_OR_MAT = prod2(NUM2S) + NUM2S.product(NUM1S) + NUM1S.product(NUM2S) + prod2(LOGICAL2S) + LOGICAL2S.product(LOGICAL1S) + LOGICAL1S.product(LOGICAL2S)
 
+   TYPES = NUM_SCALAR + LOGICAL_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT + LOGICAL_SCALAR_MUL_VEC_OR_MAT + VEC_VEC + MAT_VEC_OR_MAT
+
 -%>
 module lapack_lib
    <%= ::Fort::Type::USE_ISO_FORTRAN_ENV %>
@@ -41,7 +43,7 @@ module lapack_lib
 
    Integer, parameter:: lapack_lib_int_kind = kind(0)
 
-   <%- (NUM_SCALAR + LOGICAL_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT + LOGICAL_SCALAR_MUL_VEC_OR_MAT + VEC_VEC + MAT_VEC_OR_MAT).each{|t1, t2| -%>
+   <%- TYPES.each{|t1, t2| -%>
    interface mul
       module procedure mul<%= t1 %><%= t2 %>
    end interface mul
@@ -55,13 +57,6 @@ contains
 
 
    <%- MAT_VEC_OR_MAT.each{|t1, t2| -%>
-   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare(t1, t2) %>:: ret
-      call mul_(a, b, ret)
-   end function mul<%= t1 %><%= t2 %>
-
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
@@ -70,14 +65,8 @@ contains
    end subroutine mul_<%= t1 %><%= t2 %>
    <%- } -%>
 
-   <%- VEC_VEC.each{|t1, t2| -%>
-   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare(t1, t2) %>:: ret
-      call mul_(a, b, ret)
-   end function mul<%= t1 %><%= t2 %>
 
+   <%- VEC_VEC.each{|t1, t2| -%>
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
@@ -87,13 +76,6 @@ contains
    <%- } -%>
 
    <%- (LOGICAL_SCALAR + LOGICAL_SCALAR_MUL_VEC_OR_MAT).each{|t1, t2| -%>
-   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare(t1, t2) %>:: ret
-      call mul_(a, b, ret)
-   end function mul<%= t1 %><%= t2 %>
-
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
@@ -103,19 +85,24 @@ contains
    <%- } -%>
 
    <%- (NUM_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT).each{|t1, t2| -%>
-   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare(t1, t2) %>:: ret
-      call mul_(a, b, ret)
-   end function mul<%= t1 %><%= t2 %>
-
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
       <%= declare(t1, t2) %>, intent(out):: ret
       ret = a*b
    end subroutine mul_<%= t1 %><%= t2 %>
+   <%- } -%>
+
+
+   ! `mul<T><U>`
+
+   <%- TYPES.each{|t1, t2| -%>
+   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
+      <%= t1.declare %>, intent(in):: a
+      <%= t2.declare %>, intent(in):: b
+      <%= declare(t1, t2) %>:: ret
+      call mul_(a, b, ret)
+   end function mul<%= t1 %><%= t2 %>
    <%- } -%>
 
 end module lapack_lib
