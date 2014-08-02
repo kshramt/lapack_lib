@@ -78,6 +78,18 @@ contains
    end subroutine mul_<%= t1 %><%= t2 %>
    <%- } -%>
 
+   <%- NUM_SCALAR_MUL_VEC_OR_MAT.each{|t1, t2| -%>
+   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
+      <%= t1.declare %>, intent(in):: a
+      <%= t2.declare %>, intent(in):: b
+      <%= declare_sizes(t1, t2) %>
+      <%= declare(t1, t2) %>, intent(out):: ret
+      ret = a*b
+   end subroutine mul_<%= t1 %><%= t2 %>
+   <%- } -%>
+
+   ! just for consistency
+
    <%- (LOGICAL_SCALAR + LOGICAL_SCALAR_MUL_VEC_OR_MAT).each{|t1, t2| -%>
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
@@ -88,7 +100,7 @@ contains
    end subroutine mul_<%= t1 %><%= t2 %>
    <%- } -%>
 
-   <%- (NUM_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT).each{|t1, t2| -%>
+   <%- NUM_SCALAR.each{|t1, t2| -%>
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
