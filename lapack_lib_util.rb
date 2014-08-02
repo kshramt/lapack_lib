@@ -1,3 +1,5 @@
+require 'fort'
+
 def promote(a, b)
   ta = a.type
   tb = b.type
@@ -17,68 +19,97 @@ end
 
 
 NUMERIC_TOWER = [:Integer, :Real, :Complex]
-def promote_type(t1, t2)
-  if t1 == :Logical && t2 == :Logical
+def promote_type(ta, tb)
+  if ta == :Logical && tb == :Logical
     :Logical
   else
-    it1 = NUMERIC_TOWER.index(t1)
-    it2 = NUMERIC_TOWER.index(t2)
-    NUMERIC_TOWER[[it1, it2].max]
+    ita = NUMERIC_TOWER.index(ta)
+    itb = NUMERIC_TOWER.index(tb)
+    NUMERIC_TOWER[[ita, itb].max]
   end
 end
 
 REAL_KINDS = [:REAL32, :REAL64, :REAL128]
 INTEGER_KINDS = [:INT8, :INT16, :INT32, :INT64, :INT128]
-def promote_kind(k1, k2)
-  if (ik1 = REAL_KINDS.index(k1)) && (ik2 = REAL_KINDS.index(k2))
-    REAL_KINDS[[ik1, ik2].max]
-  elsif (ik1 = INTEGER_KINDS.index(k1)) && (ik2 = INTEGER_KINDS.index(k2))
-    INTEGER_KINDS[[ik1, ik2].max]
+def promote_kind(ka, kb)
+  if (ika = REAL_KINDS.index(ka)) && (ikb = REAL_KINDS.index(kb))
+    REAL_KINDS[[ika, ikb].max]
+  elsif (ika = INTEGER_KINDS.index(ka)) && (ikb = INTEGER_KINDS.index(kb))
+    INTEGER_KINDS[[ika, ikb].max]
   else
-    raise "Unknown kind: #{k1}, #{k2}"
+    raise "Unknown kind: #{ka}, #{kb}"
   end
 end
 
-def declare(t1, t2)
-  _declare(*promote(t1, t2), dim(t1.dim, t2.dim))
+def declare(a, b)
+  _declare(*promote(a, b), dim(a.dim, b.dim))
 end
 
 def _declare(t, k, d)
   "#{t}(kind=#{k})#{d}"
 end
 
-def dim(d1, d2)
-  if d1 == 0 && d2 == 0
+def dim(da, db)
+  if da == 0 && db == 0
     ''
-  elsif d1 == 0 && d2 == 1
+  elsif da == 0 && db == 1
     ", dimension(size(b, 1, kind=SIZE_KIND))"
-  elsif d1 == 0 && d2 == 2
+  elsif da == 0 && db == 2
     ", dimension(size(b, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))"
-  elsif d1 == 1 && d2 == 0
+  elsif da == 1 && db == 0
     ", dimension(size(a, 1, kind=SIZE_KIND))"
-  elsif d1 == 1 && d2 == 1
+  elsif da == 1 && db == 1
     ''
-  elsif d1 == 1 && d2 == 2
+  elsif da == 1 && db == 2
     ", dimension(size(b, 2, kind=SIZE_KIND))"
-  elsif d1 == 2 && d2 == 0
+  elsif da == 2 && db == 0
     ", dimension(size(a, 1, kind=SIZE_KIND), size(a, 2, kind=SIZE_KIND))"
-  elsif d1 == 2 && d2 == 1
+  elsif da == 2 && db == 1
     ", dimension(size(a, 1, kind=SIZE_KIND))"
-  elsif d1 == 2 && d2 == 2
+  elsif da == 2 && db == 2
     ", dimension(size(a, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))"
   else
     raise "MUST NOT HAPPEN"
   end
 end
 
-def declare_sizes(t1, t2)
-  ns = ((1..t1.dim).map{|d| "n_a_#{d}"} + (1..t2.dim).map{|d| "n_b_#{d}"})
+def declare_sizes(a, b)
+  ns = ((1..a.dim).map{|d| "n_a_#{d}"} + (1..b.dim).map{|d| "n_b_#{d}"})
   if ns.size > 0
     "Integer(kind=SIZE_KIND):: " + ns.join(', ')
   else
     ''
   end
 end
+
+
+def prod2(xs)
+  xs.product(xs)
+end
+REAL0S = ::Fort::Type::Real.multi_provide(dim: 0)
+REAL1S = ::Fort::Type::Real.multi_provide(dim: 1)
+REAL2S = ::Fort::Type::Real.multi_provide(dim: 2)
+INTEGER0S = ::Fort::Type::Integer.multi_provide(dim: 0)
+INTEGER1S = ::Fort::Type::Integer.multi_provide(dim: 1)
+INTEGER2S = ::Fort::Type::Integer.multi_provide(dim: 2)
+COMPLEX0S = ::Fort::Type::Complex.multi_provide(dim: 0)
+COMPLEX1S = ::Fort::Type::Complex.multi_provide(dim: 1)
+COMPLEX2S = ::Fort::Type::Complex.multi_provide(dim: 2)
+LOGICAL0S = ::Fort::Type::Logical.multi_provide(dim: 0)
+   LOGICAL1S = ::Fort::Type::Logical.multi_provide(dim: 1)
+LOGICAL2S = ::Fort::Type::Logical.multi_provide(dim: 2)
+NUM0S = REAL0S + INTEGER0S + COMPLEX0S
+NUM1S = REAL1S + INTEGER1S + COMPLEX1S
+NUM2S = REAL2S + INTEGER2S + COMPLEX2S
+NUM_SCALAR = prod2(NUM0S)
+LOGICAL_SCALAR = prod2(LOGICAL0S)
+NUM_SCALAR_MUL_VEC_OR_MAT = NUM0S.product(NUM1S + NUM2S) + (NUM1S + NUM2S).product(NUM0S)
+LOGICAL_SCALAR_MUL_VEC_OR_MAT = LOGICAL0S.product(LOGICAL1S + LOGICAL2S) + (LOGICAL1S + LOGICAL2S).product(LOGICAL0S)
+VEC_VEC = prod2(NUM1S) + prod2(LOGICAL1S)
+MAT_VEC_OR_MAT = prod2(NUM2S) + NUM2S.product(NUM1S) + NUM1S.product(NUM2S) + prod2(LOGICAL2S) + LOGICAL2S.product(LOGICAL1S) + LOGICAL1S.product(LOGICAL2S)
+
+TYPES = NUM_SCALAR + LOGICAL_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT + LOGICAL_SCALAR_MUL_VEC_OR_MAT + VEC_VEC + MAT_VEC_OR_MAT
+
 
 if __FILE__ == $PROGRAM_NAME
   p promote_kind(:REAL32, :REAL128) == :REAL128

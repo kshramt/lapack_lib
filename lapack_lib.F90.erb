@@ -1,36 +1,5 @@
 <%-
-   require 'fort'
    require 'lapack_lib_util'
-
-   def prod2(xs)
-      xs.product(xs)
-   end
-
-   REAL0S = ::Fort::Type::Real.multi_provide(dim: 0)
-   REAL1S = ::Fort::Type::Real.multi_provide(dim: 1)
-   REAL2S = ::Fort::Type::Real.multi_provide(dim: 2)
-   INTEGER0S = ::Fort::Type::Integer.multi_provide(dim: 0)
-   INTEGER1S = ::Fort::Type::Integer.multi_provide(dim: 1)
-   INTEGER2S = ::Fort::Type::Integer.multi_provide(dim: 2)
-   COMPLEX0S = ::Fort::Type::Complex.multi_provide(dim: 0)
-   COMPLEX1S = ::Fort::Type::Complex.multi_provide(dim: 1)
-   COMPLEX2S = ::Fort::Type::Complex.multi_provide(dim: 2)
-   LOGICAL0S = ::Fort::Type::Logical.multi_provide(dim: 0)
-   LOGICAL1S = ::Fort::Type::Logical.multi_provide(dim: 1)
-   LOGICAL2S = ::Fort::Type::Logical.multi_provide(dim: 2)
-   NUM0S = REAL0S + INTEGER0S + COMPLEX0S
-   NUM1S = REAL1S + INTEGER1S + COMPLEX1S
-   NUM2S = REAL2S + INTEGER2S + COMPLEX2S
-
-   NUM_SCALAR = prod2(NUM0S)
-   LOGICAL_SCALAR = prod2(LOGICAL0S)
-   NUM_SCALAR_MUL_VEC_OR_MAT = NUM0S.product(NUM1S + NUM2S) + (NUM1S + NUM2S).product(NUM0S)
-   LOGICAL_SCALAR_MUL_VEC_OR_MAT = LOGICAL0S.product(LOGICAL1S + LOGICAL2S) + (LOGICAL1S + LOGICAL2S).product(LOGICAL0S)
-   VEC_VEC = prod2(NUM1S) + prod2(LOGICAL1S)
-   MAT_VEC_OR_MAT = prod2(NUM2S) + NUM2S.product(NUM1S) + NUM1S.product(NUM2S) + prod2(LOGICAL2S) + LOGICAL2S.product(LOGICAL1S) + LOGICAL1S.product(LOGICAL2S)
-
-   TYPES = NUM_SCALAR + LOGICAL_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT + LOGICAL_SCALAR_MUL_VEC_OR_MAT + VEC_VEC + MAT_VEC_OR_MAT
-
 -%>
 module lapack_lib
    <%= ::Fort::Type::USE_ISO_FORTRAN_ENV %>
@@ -44,82 +13,85 @@ module lapack_lib
    ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `SIZE_KIND = INT64`
    Integer, parameter, public:: SIZE_KIND = kind(0)
 
-   <%- TYPES.each{|t1, t2| -%>
-   interface mul
-      module procedure mul<%= t1 %><%= t2 %>
-   end interface mul
+   <%- TYPES.each{|a, b| -%>
+      interface mul
+         module procedure mul<%= a %><%= b %>
+      end interface mul
 
-   interface mul_
-      module procedure mul_<%= t1 %><%= t2 %>
-   end interface mul_
+      interface mul_
+         module procedure mul_<%= a %><%= b %>
+      end interface mul_
    <%- } -%>
 
 contains
 
 
-   <%- MAT_VEC_OR_MAT.each{|t1, t2| -%>
-   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare_sizes(t1, t2) %>
-      <%= declare(t1, t2) %>, intent(out):: ret
-      ret = matmul(a, b)
-   end subroutine mul_<%= t1 %><%= t2 %>
+   <%- MAT_VEC_OR_MAT.each{|a, b| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare_sizes(a, b) %>
+         <%= declare(a, b) %>, intent(out):: ret
+         ret = matmul(a, b)
+      end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
 
-   <%- VEC_VEC.each{|t1, t2| -%>
-   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare_sizes(t1, t2) %>
-      <%= declare(t1, t2) %>, intent(out):: ret
-      ret = dot_product(a, b)
-   end subroutine mul_<%= t1 %><%= t2 %>
+   <%- VEC_VEC.each{|a, b| -%>
+      <%- -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare_sizes(a, b) %>
+         <%= declare(a, b) %>, intent(out):: ret
+         ret = dot_product(a, b)
+      end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
-   <%- NUM_SCALAR_MUL_VEC_OR_MAT.each{|t1, t2| -%>
-   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare_sizes(t1, t2) %>
-      <%= declare(t1, t2) %>, intent(out):: ret
-      ret = a*b
-   end subroutine mul_<%= t1 %><%= t2 %>
+   ! compiler's implementation of scalar to vector/matrix multiplications might be fine
+   ! scalar to vector: `*scal`
+   ! scalar to matrix: ?
+
+   <%- NUM_SCALAR_MUL_VEC_OR_MAT.each{|a, b| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         ! <%= declare_sizes(a, b) %>
+         <%= declare(a, b) %>, intent(out):: ret
+         ret = a*b
+      end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
-   ! just for consistency
+   ! scalar to scalar multiplications and `Logical` multiplications were implemented only for consistency
 
-   <%- (LOGICAL_SCALAR + LOGICAL_SCALAR_MUL_VEC_OR_MAT).each{|t1, t2| -%>
-   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare_sizes(t1, t2) %>
-      <%= declare(t1, t2) %>, intent(out):: ret
-      ret = a.and.b
-   end subroutine mul_<%= t1 %><%= t2 %>
+   <%- (LOGICAL_SCALAR + LOGICAL_SCALAR_MUL_VEC_OR_MAT).each{|a, b| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare(a, b) %>, intent(out):: ret
+         ret = a.and.b
+      end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
-   <%- NUM_SCALAR.each{|t1, t2| -%>
-   subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare_sizes(t1, t2) %>
-      <%= declare(t1, t2) %>, intent(out):: ret
-      ret = a*b
-   end subroutine mul_<%= t1 %><%= t2 %>
+   <%- NUM_SCALAR.each{|a, b| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare(a, b) %>, intent(out):: ret
+         ret = a*b
+      end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
 
    ! `mul<T><U>`
 
-   <%- TYPES.each{|t1, t2| -%>
-   function mul<%= t1 %><%= t2 %>(a, b) result(ret)
-      <%= t1.declare %>, intent(in):: a
-      <%= t2.declare %>, intent(in):: b
-      <%= declare(t1, t2) %>:: ret
-      call mul_(a, b, ret)
-   end function mul<%= t1 %><%= t2 %>
+   <%- TYPES.each{|a, b| -%>
+      function mul<%= a %><%= b %>(a, b) result(ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare(a, b) %>:: ret
+         call mul_(a, b, ret)
+      end function mul<%= a %><%= b %>
    <%- } -%>
 
 end module lapack_lib
