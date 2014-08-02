@@ -41,8 +41,8 @@ module lapack_lib
    private
    public:: mul, mul_
 
-   ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `size_kind = INT64`
-   Integer, parameter, public:: size_kind = kind(0)
+   ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `SIZE_KIND = INT64`
+   Integer, parameter, public:: SIZE_KIND = kind(0)
 
    <%- TYPES.each{|t1, t2| -%>
    interface mul

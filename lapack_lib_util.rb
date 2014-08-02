@@ -51,21 +51,21 @@ def dim(d1, d2)
   if d1 == 0 && d2 == 0
     ''
   elsif d1 == 0 && d2 == 1
-    ", dimension(size(b, 1, kind=size_kind))"
+    ", dimension(size(b, 1, kind=SIZE_KIND))"
   elsif d1 == 0 && d2 == 2
-    ", dimension(size(b, 1, kind=size_kind), size(b, 2, kind=size_kind))"
+    ", dimension(size(b, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))"
   elsif d1 == 1 && d2 == 0
-    ", dimension(size(a, 1, kind=size_kind))"
+    ", dimension(size(a, 1, kind=SIZE_KIND))"
   elsif d1 == 1 && d2 == 1
     ''
   elsif d1 == 1 && d2 == 2
-    ", dimension(size(b, 2, kind=size_kind))"
+    ", dimension(size(b, 2, kind=SIZE_KIND))"
   elsif d1 == 2 && d2 == 0
-    ", dimension(size(a, 1, kind=size_kind), size(a, 2, kind=size_kind))"
+    ", dimension(size(a, 1, kind=SIZE_KIND), size(a, 2, kind=SIZE_KIND))"
   elsif d1 == 2 && d2 == 1
-    ", dimension(size(a, 1, kind=size_kind))"
+    ", dimension(size(a, 1, kind=SIZE_KIND))"
   elsif d1 == 2 && d2 == 2
-    ", dimension(size(a, 1, kind=size_kind), size(b, 2, kind=size_kind))"
+    ", dimension(size(a, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))"
   else
     raise "MUST NOT HAPPEN"
   end
@@ -74,7 +74,7 @@ end
 def declare_sizes(t1, t2)
   ns = ((1..t1.dim).map{|d| "n_a_#{d}"} + (1..t2.dim).map{|d| "n_b_#{d}"})
   if ns.size > 0
-    "Integer(kind=size_kind):: " + ns.join(', ')
+    "Integer(kind=SIZE_KIND):: " + ns.join(', ')
   else
     ''
   end
