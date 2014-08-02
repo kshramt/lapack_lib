@@ -27,7 +27,7 @@ FFLAGS := $(FFLAG_COMMON) $(FFLAG_DEBUG)
 # Configurations
 .SUFFIXES:
 .DELETE_ON_ERROR:
-.SECONDARY: $(LIB_NAMES:%=%_lib_test.exe)
+.SECONDARY: $(LIB_NAMES:%=%_lib_test.exe) $(LIB_NAMES:%=%_lib.o)
 # $(LIB_NAMES:%=%_lib_test.o) $(LIB_NAMES:%=%_lib.o) $(LIB_NAMES:%=%_lib.mod)
 .ONESHELL:
 export SHELL := /bin/bash
