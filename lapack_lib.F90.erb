@@ -41,7 +41,8 @@ module lapack_lib
    private
    public:: mul, mul_
 
-   Integer, parameter:: lapack_lib_int_kind = kind(0)
+   ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `size_kind = INT64`
+   Integer, parameter, public:: size_kind = kind(0)
 
    <%- TYPES.each{|t1, t2| -%>
    interface mul
@@ -60,6 +61,7 @@ contains
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
+      <%= declare_sizes(t1, t2) %>
       <%= declare(t1, t2) %>, intent(out):: ret
       ret = matmul(a, b)
    end subroutine mul_<%= t1 %><%= t2 %>
@@ -70,6 +72,7 @@ contains
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
+      <%= declare_sizes(t1, t2) %>
       <%= declare(t1, t2) %>, intent(out):: ret
       ret = dot_product(a, b)
    end subroutine mul_<%= t1 %><%= t2 %>
@@ -79,6 +82,7 @@ contains
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
+      <%= declare_sizes(t1, t2) %>
       <%= declare(t1, t2) %>, intent(out):: ret
       ret = a.and.b
    end subroutine mul_<%= t1 %><%= t2 %>
@@ -88,6 +92,7 @@ contains
    subroutine mul_<%= t1 %><%= t2 %>(a, b, ret)
       <%= t1.declare %>, intent(in):: a
       <%= t2.declare %>, intent(in):: b
+      <%= declare_sizes(t1, t2) %>
       <%= declare(t1, t2) %>, intent(out):: ret
       ret = a*b
    end subroutine mul_<%= t1 %><%= t2 %>
