@@ -53,7 +53,7 @@ contains
    ! scalar to matrix: ?
 
    <%- NUM_SCALAR_MUL_VEC_OR_MAT.each{|a, b| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret)
+      pure subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          ! <%= declare_sizes(a, b) %>
@@ -65,7 +65,7 @@ contains
    ! scalar to scalar multiplications and `Logical` multiplications were implemented only for consistency
 
    <%- (LOGICAL_SCALAR + LOGICAL_SCALAR_MUL_VEC_OR_MAT).each{|a, b| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret)
+      pure subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          <%= declare(a, b) %>, intent(out):: ret
@@ -74,7 +74,7 @@ contains
    <%- } -%>
 
    <%- NUM_SCALAR.each{|a, b| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret)
+      pure subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          <%= declare(a, b) %>, intent(out):: ret
