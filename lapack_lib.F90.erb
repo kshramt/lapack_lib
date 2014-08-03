@@ -1,17 +1,30 @@
 <%-
    require 'lapack_lib_util'
 -%>
+
+subroutine raise(file, line, message)
+   use, intrinsic:: iso_fortran_env, only: ERROR_UNIT, INT32
+   Character(len=*), intent(in):: file
+   Integer(kind=INT32), intent(in):: line
+   Character(len=*), intent(in):: message
+   write(ERROR_UNIT, *) file, line, message
+   error stop
+end subroutine raise
+
+
 module lapack_lib
    <%= ::Fort::Type::USE_ISO_FORTRAN_ENV %>
-   use, intrinsic:: iso_fortran_env, only: input_unit, output_unit, error_unit
+   use, intrinsic:: iso_fortran_env, only: INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
+   use, non_intrinsic:: lapack_constant_lib, only: SIZE_KIND, ONE
+   use, non_intrinsic:: lapack_interface_lib, only: sdot, ddot, cdotc, zdotc
 
    implicit none
 
    private
-   public:: mul, mul_
-
    ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `SIZE_KIND = INT64`
-   Integer, parameter, public:: SIZE_KIND = kind(0)
+   public:: SIZE_KIND
+   public:: ONE
+   public:: mul, mul_
 
    <%- TYPES.each{|a, b| -%>
       interface mul
@@ -22,6 +35,15 @@ module lapack_lib
          module procedure mul_<%= a %><%= b %>
       end interface mul_
    <%- } -%>
+
+   interface
+      pure subroutine raise(file, line, message)
+         use, intrinsic:: iso_fortran_env, only: INT32
+         Character(len=*), intent(in):: file
+         Integer(kind=INT32), intent(in):: line
+         Character(len=*), intent(in):: message
+      end subroutine raise
+   end interface
 
 contains
 
@@ -38,13 +60,36 @@ contains
 
 
    <%- VEC_VEC.each{|a, b| -%>
-      <%- -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret)
+      <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
+      pure recursive subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          <%= declare_sizes(a, b) %>
          <%= declare(a, b) %>, intent(out):: ret
-         ret = dot_product(a, b)
+
+         <%= set_sizes(a, b) %>
+         <%- if ta == tb and (ta == :Logical or ta == :Integer) -%>
+            ret = dot_product(a, b)
+         <%- elsif a == b -%>
+            <%- if ta == :Real and ka == :REAL32 -%>
+               <%= fassert('n_a_1 == n_b_1') %>
+               ret = sdot(2, [1.0, 2.0], 1, [3.0, 4.0], 1)!sdot(n_a_1, a, ONE, b, ONE)
+            <%- elsif ta == :Real and ka == :REAL64 -%>
+               <%= fassert('n_a_1 == n_b_1') %>
+               ret = ddot(n_a_1, a, ONE, b, ONE)
+            <%- elsif ta == :Complex and ka == :REAL32 -%>
+               <%= fassert('n_a_1 == n_b_1') %>
+               ret = cdotc(n_a_1, a, ONE, b, ONE)
+            <%- elsif ta == :Complex and ka == :REAL64 -%>
+               <%= fassert('n_a_1 == n_b_1') %>
+               ret = zdotc(n_a_1, a, ONE, b, ONE)
+            <%- else -%>
+               ret = dot_product(a, b)
+            <%- end -%>
+         <%- else -%>
+            <%- t, k = promote(a, b) -%>
+            call mul_(<%= converter(t) %>(a, kind=<%= k %>), <%= converter(t) %>(b, kind=<%= k %>), ret)
+         <%- end -%>
       end subroutine mul_<%= a %><%= b %>
    <%- } -%>
 
@@ -56,7 +101,6 @@ contains
       pure subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
-         ! <%= declare_sizes(a, b) %>
          <%= declare(a, b) %>, intent(out):: ret
          ret = a*b
       end subroutine mul_<%= a %><%= b %>
@@ -93,5 +137,4 @@ contains
          call mul_(a, b, ret)
       end function mul<%= a %><%= b %>
    <%- } -%>
-
 end module lapack_lib

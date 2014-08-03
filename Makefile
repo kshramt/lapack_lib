@@ -19,10 +19,13 @@ FC := $(MY_FC)
 export MY_FFLAG_COMMON ?= gfortran
 FFLAG_COMMON := $(MY_FFLAG_COMMON)
 
-export MY_FFLAG_DEBUG ?= gfortran
+export MY_FFLAG_DEBUG ?= -fbounds-check -O0 -fbacktrace -ffpe-trap=invalid,zero,overflow -ggdb -pg -DDEBUG
 FFLAG_DEBUG := $(MY_FFLAG_DEBUG)
 
-FFLAGS := $(FFLAG_COMMON) $(FFLAG_DEBUG)
+export MY_LAPACK ?= -L/opt/local/lib -lopenblas
+LAPACK := $(MY_LAPACK)
+
+FFLAGS := $(FFLAG_COMMON) $(FFLAG_DEBUG) $(LAPACK)
 
 # Configurations
 .SUFFIXES:
@@ -40,6 +43,10 @@ test: prepare $(LIB_NAMES:%=%_lib_test.exe.done)
 prepare: deps $(LIB_NAMES:%=%_lib.F90)
 deps: $(DEPS:%=dep/%.updated)
 
+lapack_lib_test.exe: lapack_interface_lib.mod lapack_interface_lib.o lapack_constant_lib.mod lapack_constant_lib.o
+lapack_lib.mod lapack_lib.o: lapack_interface_lib.mod lapack_constant_lib.mod
+lapack_interface_lib.mod lapack_interface_lib.o: lapack_constant_lib.mod
+
 # Files
 
 %_test.exe: %.o %.mod %_test.o
@@ -51,12 +58,12 @@ deps: $(DEPS:%=dep/%.updated)
 	./$<
 	touch $@
 %_lib.mod %_lib.o: %_lib.F90
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $(filter-out %.mod,$^)
+	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
 	touch ${@:%.o=%.mod}
-%_test.o: %.mod %_test.F90
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $(filter-out %.mod,$^)
+%_test.o: %_test.F90 %.mod
+	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
 %.o: %.F90
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $(filter-out %.mod,$^)
+	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
 %.F90: %.F90.erb lapack_lib_util.rb dep/fort/lib/fort/type.rb
 	export RUBYLIB=dep/fort/lib:$(DIR):"$${RUBYLIB}"
 	$(ERB) $(ERB_FLAGS) $< >| $@
