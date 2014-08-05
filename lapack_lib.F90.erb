@@ -60,7 +60,6 @@ contains
 
 
    <%- VEC_VEC.each{|a, b| -%>
-      <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
       pure recursive subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
@@ -68,6 +67,7 @@ contains
          <%= declare(a, b) %>, intent(out):: ret
 
          <%= set_sizes(a, b) %>
+         <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
          <%- if ta == tb and (ta == :Logical or ta == :Integer) -%>
             ret = dot_product(a, b)
          <%- elsif a == b -%>
