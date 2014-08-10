@@ -2,18 +2,10 @@
    require 'lapack_lib_util'
 -%>
 
-subroutine raise(file, line, message)
-   use, intrinsic:: iso_fortran_env, only: ERROR_UNIT, INT32
-   Character(len=*), intent(in):: file
-   Integer(kind=INT32), intent(in):: line
-   Character(len=*), intent(in):: message
-   write(ERROR_UNIT, *) file, line, message
-   error stop
-end subroutine raise
-
-
+#include "lapack_lib.h"
 module lapack_lib
    <%= ::Fort::Type::USE_ISO_FORTRAN_ENV %>
+   USE_LAPACK_LIB_H
    use, intrinsic:: iso_fortran_env, only: INPUT_UNIT, OUTPUT_UNIT, ERROR_UNIT
    use, non_intrinsic:: lapack_constant_lib, only: SIZE_KIND, ONE
    use, non_intrinsic:: lapack_interface_lib, only: sdot, ddot, cdotc, zdotc
@@ -36,15 +28,6 @@ module lapack_lib
       end interface mul_
    <%- } -%>
 
-   interface
-      pure subroutine raise(file, line, message)
-         use, intrinsic:: iso_fortran_env, only: INT32
-         Character(len=*), intent(in):: file
-         Integer(kind=INT32), intent(in):: line
-         Character(len=*), intent(in):: message
-      end subroutine raise
-   end interface
-
 contains
 
 
@@ -60,7 +43,7 @@ contains
 
 
    <%- VEC_VEC.each{|a, b| -%>
-      pure recursive subroutine mul_<%= a %><%= b %>(a, b, ret)
+      recursive subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          <%= declare_sizes(a, b) %>
@@ -72,16 +55,16 @@ contains
             ret = dot_product(a, b)
          <%- elsif a == b -%>
             <%- if ta == :Real and ka == :REAL32 -%>
-               <%= fassert('n_a_1 == n_b_1') %>
+               ASSERT(n_a_1 == n_b_1)
                ret = sdot(n_a_1, a, ONE, b, ONE)
             <%- elsif ta == :Real and ka == :REAL64 -%>
-               <%= fassert('n_a_1 == n_b_1') %>
+               ASSERT(n_a_1 == n_b_1)
                ret = ddot(n_a_1, a, ONE, b, ONE)
             <%- elsif ta == :Complex and ka == :REAL32 -%>
-               <%= fassert('n_a_1 == n_b_1') %>
+               ASSERT(n_a_1 == n_b_1)
                ret = cdotc(n_a_1, a, ONE, b, ONE)
             <%- elsif ta == :Complex and ka == :REAL64 -%>
-               <%= fassert('n_a_1 == n_b_1') %>
+               ASSERT(n_a_1 == n_b_1)
                ret = zdotc(n_a_1, a, ONE, b, ONE)
             <%- else -%>
                ret = dot_product(a, b)

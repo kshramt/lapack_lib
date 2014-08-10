@@ -87,11 +87,6 @@ def prod2(xs)
   xs.product(xs)
 end
 
-def fassert(s)
-#  "if(.not.(#{s}))then; write(ERROR_UNIT, *) \"RAISE: \", __FILE__, ' ', __LINE__, \".not.(#{s})\"; error stop; else; write(ERROR_UNIT, *) n_a_1, n_b_1; end if"
-  "if(.not.(#{s}))then; call raise(__FILE__, __LINE__, \".not.(#{s})\"); end if"
-end
-
 def converter(t)
   {
     Real: :real,

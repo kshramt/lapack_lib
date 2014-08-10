@@ -107,7 +107,7 @@ bin/%.exe:
 	$(FC) $(FFLAGS) -c -o $*.o $<
 
 
-src/%.f90: %.f90
+src/%.f90: %.f90 lapack_lib.h
 	mkdir -p $(@D)
 	$(CPP) $(CPP_FLAGS) $< $@
 %.f90: %.f90.erb
