@@ -27,44 +27,90 @@ LAPACK := $(MY_LAPACK)
 
 FFLAGS := $(FFLAG_COMMON) $(FFLAG_DEBUG) $(LAPACK)
 
+MY_CPP ?= cpp
+CPP := $(MY_CPP)
+CPP_FLAGS := -P -C
+ifeq ($(FC),ifort)
+   CPP_FLAGS += -D __INTEL_COMPILER
+endif
+
+FILES := $(shell git ls-files)
+F90_NAMES := $(patsubst %.f90,%,$(filter %.f90,$(FILES)))
+F90_NAMES += $(patsubst %.f90.erb,%,$(filter %.f90.erb,$(FILES)))
+LIB_NAMES := $(filter %_lib,$(F90_NAMES))
+TEST_NAMES := $(filter %_test,$(F90_NAMES))
+ERRORTEST_TEMPLATE_NAMES := $(filter %_errortest,$(F90_NAMES))
+ERRORTEST_STEMS := $(patsubst %_errortest,%,$(ERRORTEST_TEMPLATE_NAMES))
+ERRORTEST_IMPL_NAMES := $(foreach name,$(ERRORTEST_TEMPLATE_NAMES),$(filter $(name)/%,$(F90_NAMES)))
+ERRORTEST_NAMES := $(addsuffix _errortest,$(subst _errortest/,_,$(ERRORTEST_IMPL_NAMES)))
+EXE_NAMES := $(filter-out $(LIB_NAMES) $(TEST_NAMES) $(ERRORTEST_TEMPLATE_NAMES) $(ERRORTEST_IMPL_NAMES),$(F90_NAMES))
+
+# Functions
+o_mod = $(1:%=%.o) $(addsuffix .mod,$(filter %_lib,$(1)))
+
 # Configurations
 .SUFFIXES:
 .DELETE_ON_ERROR:
-.SECONDARY: $(LIB_NAMES:%=%_lib_test.exe) $(LIB_NAMES:%=%_lib.o) $(LIB_NAMES:%=%_lib.mod)
-# $(LIB_NAMES:%=%_lib_test.o) $(LIB_NAMES:%=%_lib.o) $(LIB_NAMES:%=%_lib.mod)
 .ONESHELL:
 export SHELL := /bin/bash
 export SHELLOPTS := pipefail:errexit:nounset:noclobber
 
 # Tasks
-.PHONY: all test deps prepare
-all: prepare
-test: prepare $(LIB_NAMES:%=%_lib_test.exe.done)
-prepare: deps $(LIB_NAMES:%=%_lib.f90)
+.PHONY: all src test deps prepare
+all: prepare src $(EXE_NAMES:%=bin/%.exe)
+src: prepare $(patsubst %,src/%.f90,$(filter-out $(ERRORTEST_TEMPLATE_NAMES) $(ERRORTEST_IMPL_NAMES),$(F90_NAMES))) $(patsubst %,src/%.f90,$(ERRORTEST_NAMES))
+test: prepare $(TEST_NAMES:%=test/%.exe.tested) $(ERRORTEST_NAMES:%=test/%.exe.tested)
+prepare: deps
 deps: $(DEPS:%=dep/%.updated)
-
-lapack_lib_test.exe: lapack_interface_lib.mod lapack_interface_lib.o lapack_constant_lib.mod lapack_constant_lib.o
-lapack_lib.mod lapack_lib.o: lapack_interface_lib.mod lapack_constant_lib.mod
-lapack_interface_lib.mod lapack_interface_lib.o: lapack_constant_lib.mod
 
 # Files
 
-%_test.exe: %.o %.mod %_test.o
-	$(FC) $(FFLAGS) -o $@ $(filter-out %.mod,$^)
+## Executables
+
+## Tests
+test/lapack_lib_test.exe: $(call o_mod,lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
 
 # Rules
+define ERRORTEST_F90_TEMPLATE =
+src/$(1)_$(2)_errortest.f90: $(1)_errortest.f90 $(1)_errortest/$(2).f90
+	mkdir -p $$(@D)
+	{
+	   cat $$^
+	   echo '   stop'
+	   echo 'end program main'
+	} | $(CPP) $(CPP_FLAGS) -D __FILE__='"$$@"' -o $$@
+endef
+$(foreach stem,$(ERRORTEST_STEMS),$(foreach branch,$(patsubst $(stem)_%_errortest,%,$(filter $(stem)_%,$(ERRORTEST_NAMES))),$(eval $(call ERRORTEST_F90_TEMPLATE,$(stem),$(branch)))))
 
-%_test.exe.done: %_test.exe
-	./$<
-	touch $@
-%_lib.mod %_lib.o: %_lib.f90
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
-	touch ${@:%.o=%.mod}
-%_test.o: %_test.f90 %.mod
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
-%.o: %.f90
-	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
-%.f90: %.f90.erb lapack_lib_util.rb dep/fort/lib/fort/type.rb
+test/%_errortest.exe.tested: test/%_errortest.exe
+	cd $(@D)
+	! ./$(<F)
+	touch $(@F)
+test/%_test.exe.tested: test/%_test.exe
+	cd $(@D)
+	./$(<F)
+	touch $(@F)
+test/%.exe:
+	mkdir -p $(@D)
+	$(FC) $(FFLAGS) -o $@ $(filter-out %.mod,$^)
+
+
+bin/%.exe:
+	mkdir -p $(@D)
+	$(FC) $(FFLAGS) -o $@ $(filter-out %.mod,$^)
+
+
+%_lib.mod %_lib.o: src/%_lib.f90
+	$(FC) $(FFLAGS) -c -o $*_lib.o $<
+	touch $*_lib.mod
+%.o: src/%.f90
+	$(FC) $(FFLAGS) -c -o $*.o $<
+
+
+src/%.f90: %.f90
+	mkdir -p $(@D)
+	$(CPP) $(CPP_FLAGS) $< $@
+%.f90: %.f90.erb
 	export RUBYLIB=dep/fort/lib:$(DIR):"$${RUBYLIB}"
 	$(ERB) $(ERB_FLAGS) $< >| $@
 
