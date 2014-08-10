@@ -40,7 +40,7 @@ export SHELLOPTS := pipefail:errexit:nounset:noclobber
 .PHONY: all test deps prepare
 all: prepare
 test: prepare $(LIB_NAMES:%=%_lib_test.exe.done)
-prepare: deps $(LIB_NAMES:%=%_lib.F90)
+prepare: deps $(LIB_NAMES:%=%_lib.f90)
 deps: $(DEPS:%=dep/%.updated)
 
 lapack_lib_test.exe: lapack_interface_lib.mod lapack_interface_lib.o lapack_constant_lib.mod lapack_constant_lib.o
@@ -57,14 +57,14 @@ lapack_interface_lib.mod lapack_interface_lib.o: lapack_constant_lib.mod
 %_test.exe.done: %_test.exe
 	./$<
 	touch $@
-%_lib.mod %_lib.o: %_lib.F90
+%_lib.mod %_lib.o: %_lib.f90
 	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
 	touch ${@:%.o=%.mod}
-%_test.o: %_test.F90 %.mod
+%_test.o: %_test.f90 %.mod
 	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
-%.o: %.F90
+%.o: %.f90
 	$(FC) $(FFLAGS) -c -o $(@:%.mod=%.o) $<
-%.F90: %.F90.erb lapack_lib_util.rb dep/fort/lib/fort/type.rb
+%.f90: %.f90.erb lapack_lib_util.rb dep/fort/lib/fort/type.rb
 	export RUBYLIB=dep/fort/lib:$(DIR):"$${RUBYLIB}"
 	$(ERB) $(ERB_FLAGS) $< >| $@
 
