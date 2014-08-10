@@ -43,7 +43,7 @@ contains
 
 
    <%- VEC_VEC.each{|a, b| -%>
-      recursive subroutine mul_<%= a %><%= b %>(a, b, ret)
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
          <%= declare_sizes(a, b) %>
