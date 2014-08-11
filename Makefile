@@ -22,7 +22,7 @@ FFLAG_COMMON := $(MY_FFLAG_COMMON)
 export MY_FFLAG_DEBUG ?= -fbounds-check -O0 -fbacktrace -ffpe-trap=invalid,zero,overflow -ggdb -pg -DDEBUG
 FFLAG_DEBUG := $(MY_FFLAG_DEBUG)
 
-export MY_LAPACK ?= -lopenblas
+export MY_LAPACK ?= -lblas
 LAPACK := $(MY_LAPACK)
 
 FFLAGS := $(FFLAG_COMMON) $(FFLAG_DEBUG) $(LAPACK)
