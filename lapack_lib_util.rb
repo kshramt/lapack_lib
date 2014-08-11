@@ -83,13 +83,21 @@ def set_sizes(a, b)
 end
 
 
-def ntc(mode, arg)
+def gen_ntc(t)
+  if t.type == :Complex
+    [:n, :t, :c]
+  else
+    [:n, :t]
+  end
+end
+
+def ntc_fn(mode, arg)
   case mode
-  when 'n'
+  when :n
     arg
-  when 't'
+  when :t
     "transpose(#{arg})"
-  when 'c'
+  when :c
     "transpose(conjg(#{arg}))"
   else
     raise "Unknown mode: #{mode}"
@@ -139,6 +147,8 @@ TYPES =
   (NUM2S_NUM1S = NUM2S.product(NUM1S)) +
   (LOGICAL2S_LOGICAL2S = LOGICAL2S.product(LOGICAL2S)) + # matrix matrix
   (NUM2S_NUM2S = NUM2S.product(NUM2S))
+
+T2S_U2S_NTCS = (LOGICAL2S_LOGICAL2S + NUM2S_NUM2S).map{|a, b| [a, b, gen_ntc(a).product(gen_ntc(b))]}
 
 
 if __FILE__ == $PROGRAM_NAME
