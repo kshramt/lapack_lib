@@ -83,6 +83,19 @@ def set_sizes(a, b)
 end
 
 
+def ntc(mode, arg)
+  case mode
+  when 'n'
+    arg
+  when 't'
+    "transpose(#{arg})"
+  when 'c'
+    "transpose(conjg(#{arg}))"
+  else
+    raise "Unknown mode: #{mode}"
+  end
+end
+
 def prod2(xs)
   xs.product(xs)
 end
@@ -111,14 +124,21 @@ NUM0S = REAL0S + INTEGER0S + COMPLEX0S
 NUM1S = REAL1S + INTEGER1S + COMPLEX1S
 NUM2S = REAL2S + INTEGER2S + COMPLEX2S
 
-NUM_SCALAR = prod2(NUM0S)
-LOGICAL_SCALAR = prod2(LOGICAL0S)
-NUM_SCALAR_MUL_VEC_OR_MAT = NUM0S.product(NUM1S + NUM2S) + (NUM1S + NUM2S).product(NUM0S)
-LOGICAL_SCALAR_MUL_VEC_OR_MAT = LOGICAL0S.product(LOGICAL1S + LOGICAL2S) + (LOGICAL1S + LOGICAL2S).product(LOGICAL0S)
-VEC_VEC = prod2(NUM1S) + prod2(LOGICAL1S)
-MAT_VEC_OR_MAT = prod2(NUM2S) + NUM2S.product(NUM1S) + NUM1S.product(NUM2S) + prod2(LOGICAL2S) + LOGICAL2S.product(LOGICAL1S) + LOGICAL1S.product(LOGICAL2S)
-
-TYPES = NUM_SCALAR + LOGICAL_SCALAR + NUM_SCALAR_MUL_VEC_OR_MAT + LOGICAL_SCALAR_MUL_VEC_OR_MAT + VEC_VEC + MAT_VEC_OR_MAT
+TYPES =
+  (LOGICAL0S_LOGICAL0S = LOGICAL0S.product(LOGICAL0S)) + # scalar logical
+  (LOGICAL0S_LOGICAL12S = LOGICAL0S.product(LOGICAL1S + LOGICAL2S)) +
+  (LOGICAL12S_LOGICAL0S = (LOGICAL1S + LOGICAL2S).product(LOGICAL0S)) +
+  (NUM0S_NUM0S = NUM0S.product(NUM0S)) + # sucalar numeric
+  (NUM0S_NUM12S = NUM0S.product(NUM1S + NUM2S)) +
+  (NUM12S_NUM0S = (NUM1S + NUM2S).product(NUM0S)) +
+  (NUM1S_NUM1S = NUM1S.product(NUM1S)) + # vector vector
+  (LOGICAL1S_LOGICAL1S = LOGICAL1S.product(LOGICAL1S)) +
+  (LOGICAL1S_LOGICAL2S = LOGICAL1S.product(LOGICAL2S)) + # vector matrix
+  (NUM1S_NUM2S = NUM1S.product(NUM2S)) +
+  (LOGICAL2S_LOGICAL1S = LOGICAL2S.product(LOGICAL1S)) + # matrix vector
+  (NUM2S_NUM1S = NUM2S.product(NUM1S)) +
+  (LOGICAL2S_LOGICAL2S = LOGICAL2S.product(LOGICAL2S)) + # matrix matrix
+  (NUM2S_NUM2S = NUM2S.product(NUM2S))
 
 
 if __FILE__ == $PROGRAM_NAME
