@@ -59,7 +59,7 @@ export SHELLOPTS := pipefail:errexit:nounset:noclobber
 .PHONY: all src test deps prepare
 all: prepare src $(EXE_NAMES:%=bin/%.exe)
 src: prepare $(patsubst %,src/%.f90,$(filter-out $(ERRORTEST_TEMPLATE_NAMES) $(ERRORTEST_IMPL_NAMES),$(F90_NAMES))) $(patsubst %,src/%.f90,$(ERRORTEST_NAMES))
-test: prepare $(TEST_NAMES:%=test/%.exe.tested) $(ERRORTEST_NAMES:%=test/%.exe.tested)
+test: prepare $(TEST_NAMES:%=test/%.exe.tested) $(ERRORTEST_NAMES:%=test/%.exe.tested) test/lapack_lib_util.rb.tested
 prepare: deps
 deps: $(DEPS:%=dep/%.updated)
 
@@ -69,6 +69,11 @@ deps: $(DEPS:%=dep/%.updated)
 
 ## Tests
 test/lapack_lib_test.exe: $(call o_mod,comparable_lib lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
+
+test/lapack_lib_util.rb.tested: lapack_lib_util.rb
+	mkdir -p $(@D)
+	$(RUBY) $<
+	touch $@
 
 src/comparable_lib.f90: dep/fortran_lib/src/comparable_lib.f90
 	mkdir -p $(@D)

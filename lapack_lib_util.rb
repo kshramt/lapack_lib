@@ -1,4 +1,8 @@
+require 'minitest'
+require 'minitest/unit'
+
 require 'fort'
+
 
 def promote(a, b)
   ta = a.type
@@ -22,6 +26,8 @@ NUMERIC_TOWER = [:Integer, :Real, :Complex]
 def promote_type(ta, tb)
   if ta == :Logical && tb == :Logical
     :Logical
+  elsif ta == :Logical or tb == :Logical
+    raise "Not promotable: #{ta}, #{tb}"
   else
     ita = NUMERIC_TOWER.index(ta)
     itb = NUMERIC_TOWER.index(tb)
@@ -151,6 +157,65 @@ TYPES =
 T2S_U2S_NTCS = (LOGICAL2S_LOGICAL2S + NUM2S_NUM2S).map{|a, b| [a, b, gen_ntc(a).product(gen_ntc(b))]}
 
 
+class Tester < MiniTest::Test
+  def test_prmote_kind
+    assert_equal promote_kind(:REAL32, :REAL32), :REAL32
+    assert_equal promote_kind(:REAL32, :REAL64), :REAL64
+    assert_equal promote_kind(:REAL32, :REAL128), :REAL128
+    assert_equal promote_kind(:REAL64, :REAL32), :REAL64
+    assert_equal promote_kind(:REAL64, :REAL64), :REAL64
+    assert_equal promote_kind(:REAL64, :REAL128), :REAL128
+    assert_equal promote_kind(:REAL128, :REAL32), :REAL128
+    assert_equal promote_kind(:REAL128, :REAL64), :REAL128
+    assert_equal promote_kind(:REAL128, :REAL128), :REAL128
+    assert_equal promote_kind(:INT32, :INT32), :INT32
+    assert_equal promote_kind(:INT32, :INT64), :INT64
+    assert_equal promote_kind(:INT32, :INT16), :INT32
+    assert_equal promote_kind(:INT64, :INT32), :INT64
+    assert_equal promote_kind(:INT64, :INT64), :INT64
+    assert_equal promote_kind(:INT64, :INT16), :INT64
+    assert_equal promote_kind(:INT16, :INT32), :INT32
+    assert_equal promote_kind(:INT16, :INT64), :INT64
+    assert_equal promote_kind(:INT16, :INT16), :INT16
+    assert_raises RuntimeError do
+      promote_kind(:INT32, :REAL32)
+    end
+  end
+
+  def test_promote_type
+    assert_equal promote_type(:Integer, :Integer), :Integer
+    assert_equal promote_type(:Integer, :Real), :Real
+    assert_equal promote_type(:Integer, :Complex), :Complex
+    assert_equal promote_type(:Real, :Integer), :Real
+    assert_equal promote_type(:Real, :Real), :Real
+    assert_equal promote_type(:Real, :Complex), :Complex
+    assert_equal promote_type(:Complex, :Integer), :Complex
+    assert_equal promote_type(:Complex, :Real), :Complex
+    assert_equal promote_type(:Complex, :Complex), :Complex
+    assert_equal promote_type(:Logical, :Logical), :Logical
+    assert_raises RuntimeError do
+      promote_type(:Logical, :Integer)
+    end
+    assert_raises RuntimeError do
+      promote_type(:Logical, :Real)
+    end
+    assert_raises RuntimeError do
+      promote_type(:Logical, :Complex)
+    end
+    assert_raises RuntimeError do
+      promote_type(:Integer, :Logical)
+    end
+    assert_raises RuntimeError do
+      promote_type(:Real, :Logical)
+    end
+    assert_raises RuntimeError do
+      promote_type(:Complex, :Logical)
+    end
+  end
+end
+
+
+
 if __FILE__ == $PROGRAM_NAME
-  p promote_kind(:REAL32, :REAL128) == :REAL128
+  MiniTest.run()
 end
