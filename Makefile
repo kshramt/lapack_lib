@@ -65,6 +65,8 @@ deps: $(DEPS:%=dep/%.updated)
 
 # Files
 
+lapack_lib.f90: lapack_lib_util.rb
+
 ## Executables
 
 ## Tests
