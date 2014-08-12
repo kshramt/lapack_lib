@@ -1,6 +1,6 @@
 # Constants
 DIR := $(abspath .)
-DEPS := fort
+DEPS := fort fortran_lib
 
 LIB_NAMES = lapack
 
@@ -68,7 +68,12 @@ deps: $(DEPS:%=dep/%.updated)
 ## Executables
 
 ## Tests
-test/lapack_lib_test.exe: $(call o_mod,lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
+test/lapack_lib_test.exe: $(call o_mod,comparable_lib lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
+
+src/comparable_lib.f90: dep/fortran_lib/src/comparable_lib.f90
+	mkdir -p $(@D)
+	cp -f $< $@
+
 
 # Rules
 define ERRORTEST_F90_TEMPLATE =
