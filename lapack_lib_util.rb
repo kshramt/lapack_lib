@@ -47,6 +47,25 @@ def promote_kind(ka, kb)
   end
 end
 
+def declare12(a, b, ntcb)
+  t, k = promote(a, b)
+  d = ntcb == :n ? 2 : 1
+  "#{t}(kind=#{k}), dimension(size(b, #{d}, kind=SIZE_KIND))"
+end
+
+def declare21(a, b, ntca)
+  t, k = promote(a, b)
+  d = ntca == :n ? 1 : 2
+  "#{t}(kind=#{k}), dimension(size(a, #{d}, kind=SIZE_KIND))"
+end
+
+def declare22(a, b, ntca, ntcb)
+  t, k = promote(a, b)
+  d1 = ntca == :n ? 1 : 2
+  d2 = ntcb == :n ? 2 : 1
+  "#{t}(kind=#{k}), dimension(size(a, #{d1}, kind=SIZE_KIND), size(b, #{d2}, kind=SIZE_KIND))"
+end
+
 def declare(a, b)
   _declare(*promote(a, b), dim(a.dim, b.dim))
 end
@@ -61,10 +80,7 @@ DIMS_TO_DECLARE = {
   [0, 2] => ", dimension(size(b, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))",
   [1, 0] => ", dimension(size(a, 1, kind=SIZE_KIND))",
   [1, 1] => '',
-  [1, 2] => ", dimension(size(b, 2, kind=SIZE_KIND))",
   [2, 0] => ", dimension(size(a, 1, kind=SIZE_KIND), size(a, 2, kind=SIZE_KIND))",
-  [2, 1] => ", dimension(size(a, 1, kind=SIZE_KIND))",
-  [2, 2] => ", dimension(size(a, 1, kind=SIZE_KIND), size(b, 2, kind=SIZE_KIND))",
 }
 def dim(da, db)
   DIMS_TO_DECLARE.fetch([da, db])
@@ -86,6 +102,15 @@ def set_sizes(a, b)
   else
     ''
   end
+end
+
+
+def ntc_type_from_mode(mode)
+  {
+    n: :TransN,
+    t: :TransT,
+    c: :TransC,
+  }.fetch(mode)
 end
 
 
@@ -154,7 +179,12 @@ TYPES =
   (LOGICAL2S_LOGICAL2S = LOGICAL2S.product(LOGICAL2S)) + # matrix matrix
   (NUM2S_NUM2S = NUM2S.product(NUM2S))
 
-T2S_U2S_NTCS = (LOGICAL2S_LOGICAL2S + NUM2S_NUM2S).map{|a, b| [a, b, gen_ntc(a).product(gen_ntc(b))]}
+T1S_U2S = LOGICAL1S_LOGICAL2S + NUM1S_NUM2S
+T1S_U2S_NTCS = T1S_U2S.map{|a, b| [a, b, gen_ntc(b)]}
+T2S_U1S = LOGICAL2S_LOGICAL1S + NUM2S_NUM1S
+T2S_U1S_NTCS = T2S_U1S.map{|a, b| [a, b, gen_ntc(a)]}
+T2S_U2S = LOGICAL2S_LOGICAL2S + NUM2S_NUM2S
+T2S_U2S_NTCS = T2S_U2S.map{|a, b| [a, b, gen_ntc(a).product(gen_ntc(b))]}
 
 
 class Tester < MiniTest::Test

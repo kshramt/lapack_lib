@@ -14,13 +14,33 @@ module lapack_lib
 
    implicit none
 
+
    private
    ! If you use LAPACK/BLAS with `ilp64` without `-fdefault-integer-8`, you should set `SIZE_KIND = INT64`
    public:: SIZE_KIND
    public:: ONE
    public:: mul, mul_
 
-   <%- TYPES.each{|a, b| -%>
+
+   type:: Trans
+   end type Trans
+
+   type, extends(Trans):: TransN
+   end type TransN
+
+   type, extends(Trans):: TransT
+   end type TransT
+
+   type, extends(Trans):: TransC
+   end type TransC
+
+
+   type(TransN), parameter, public:: TR_N = TransN()
+   type(TransT), parameter, public:: TR_T = TransT()
+   type(TransC), parameter, public:: TR_C = TransC()
+
+
+   <%- (TYPES - (T2S_U2S + T2S_U1S + T1S_U2S)).each{|a, b| -%>
       interface mul
          module procedure mul<%= a %><%= b %>
       end interface mul
@@ -30,181 +50,175 @@ module lapack_lib
       end interface mul_
    <%- } -%>
 
-   <%- T2S_U2S_NTCS.each{|a, b, ntcs| -%>
-      <%- ntcs.each{|ntca, ntcb| -%>
-         interface mul_<%= ntca %><%= ntcb %>
-            module procedure mul_<%= a %><%= b %><%= ntca %><%= ntcb %>
-         end interface mul_<%= ntca %><%= ntcb %>
+   <%- (T2S_U1S_NTCS + T1S_U2S_NTCS).each{|a, b, ntcs| -%>
+      interface mul
+         module procedure mul<%= a %><%= b %>
+      end interface mul
+
+      interface mul_
+         module procedure mul_<%= a %><%= b %>
+      end interface mul_
+
+      <%- ntcs.each{|ntc| -%>
+         interface mul
+            module procedure mul<%= a %><%= b %><%= ntc %>
+         end interface mul
+
+         interface mul_
+            module procedure mul_<%= a %><%= b %><%= ntc %>
+         end interface mul_
       <%- } -%>
    <%- } -%>
+
+   <%- T2S_U2S_NTCS.each{|a, b, ntcs| -%>
+      interface mul
+         module procedure mul<%= a %><%= b %>
+      end interface mul
+
+      interface mul_
+         module procedure mul_<%= a %><%= b %>
+      end interface mul_
+
+      <%- ntcs.each{|ntca, ntcb| -%>
+         interface mul
+            module procedure mul<%= a %><%= b %><%= ntca %><%= ntcb %>
+         end interface mul
+
+         interface mul_
+            module procedure mul_<%= a %><%= b %><%= ntca %><%= ntcb %>
+         end interface mul_
+      <%- } -%>
+   <%- } -%>
+
+
+   interface str
+      module procedure str_TransN
+      module procedure str_TransT
+      module procedure str_TransC
+   end interface str
+
 
 contains
 
 
    <%- T2S_U2S_NTCS.each{|a, b, ntcs| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret, transa, transb)
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
-         <%= declare_sizes(a, b) %>
-         <%= declare(a, b) %>, intent(out):: ret
-         Character(len=1), intent(in), optional:: transa, transb
-         Character(len=len(transa)):: transa_
-         Character(len=len(transb)):: transb_
+         <%= declare22(a, b, :n, :n) %>, intent(out):: ret
 
-         if(present(transa))then
-            transa_ = transa
-         else
-            transa_ = 'n'
-         end if
-         if(present(transb))then
-            transb_ = transb
-         else
-            transb_ = 'n'
-         end if
-
-         <%= set_sizes(a, b) %>
-         <%- ntcs.each{|ntca, ntcb| -%>
-            if((transa_ == '<%= ntca %>' .or. transa_ == '<%= ntca.upcase %>') .and. (transb_ == '<%= ntcb %>' .or. transb_ == '<%= ntcb.upcase %>'))then
-               ASSERT(n_a_<%= ntca == :n ? 2 : 1 %> == n_b_<%= ntcb == :n ? 1 : 2 %>)
-               call mul_<%= ntca %><%= ntcb %>(a, b, ret)
-               return
-            end if
-         <%- } -%>
-         write(OUTPUT_UNIT, *) 'Unsupported transa and/or transb: ', trim(transa_), ' ', trim(transb_)
+         call mul_(a, b, ret, TR_N, TR_N)
       end subroutine mul_<%= a %><%= b %>
-   <%- } -%>
 
-   <%- T2S_U2S_NTCS.each{|a, b, ntcs| -%>
       <%- ntcs.each{|ntca, ntcb| -%>
-         subroutine mul_<%= a %><%= b %><%= ntca %><%= ntcb %>(a, b, ret)
+         subroutine mul_<%= a %><%= b %><%= ntca %><%= ntcb %>(a, b, ret, transa, transb)
             <%= a.declare %>, intent(in):: a
             <%= b.declare %>, intent(in):: b
+            <%= declare22(a, b, ntca, ntcb) %>, intent(out):: ret
+            type(<%= ntc_type_from_mode(ntca) %>), intent(in):: transa
+            type(<%= ntc_type_from_mode(ntcb) %>), intent(in):: transb
             <%= declare_sizes(a, b) %>
-            <%= declare(a, b) %>, intent(out):: ret
-            Character(len=1), parameter:: ntca = '<%= ntca %>', ntcb = '<%= ntcb %>'
-   
+            Integer(kind=SIZE_KIND):: m, n, k
+
             <%= set_sizes(a, b) %>
             <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
             <%- if ta == tb and (ta == :Logical or ta == :Integer) -%>
                ret = matmul(<%= ntc_fn(ntca, 'a') %>, <%= ntc_fn(ntca, 'b') %>)
             <%- elsif ta == tb and ka == kb -%>
+               m = size(ret, 1, kind=kind(m))
+               n = size(ret, 2, kind=kind(n))
+               k = n_a_<%= ntca == :n ? 2 : 1 %>
+               ASSERT(k == n_b_<%= ntcb == :n ? 1 : 2 %>)
                <%- if ta == :Real and ka == :REAL32 -%>
-                  call sgemm(ntca, ntcb, n_a_1, n_b_2, n_a_2, real(1, kind=kind(ret)), a, n_a_1, b, n_b_1, real(1, kind=kind(ret)), ret, n_a_1)
+                  call sgemm(str(transa), str(transb), m, n, k, real(1, kind=kind(ret)), a, n_a_1, b, n_b_1, real(0, kind=kind(ret)), ret, m)
                <%- elsif ta == :Real and ka == :REAL64 -%>
-                  call dgemm(ntca, ntcb, n_a_1, n_b_2, n_a_2, real(1, kind=kind(ret)), a, n_a_1, b, n_b_1, real(1, kind=kind(ret)), ret, n_a_1)
+                  call dgemm(str(transa), str(transb), m, n, k, real(1, kind=kind(ret)), a, n_a_1, b, n_b_1, real(0, kind=kind(ret)), ret, m)
                <%- elsif ta == :Complex and ka == :REAL32 -%>
-                  call cgemm(ntca, ntcb, n_a_1, n_b_2, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, b, n_b_1, cmplx(1, kind=kind(ret)), ret, n_a_1)
+                  call cgemm(str(transa), str(transb), m, n, k, cmplx(1, kind=kind(ret)), a, n_a_1, b, n_b_1, cmplx(0, kind=kind(ret)), ret, m)
                <%- elsif ta == :Complex and ka == :REAL64 -%>
-                  call zgemm(ntca, ntcb, n_a_1, n_b_2, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, b, n_b_1, cmplx(1, kind=kind(ret)), ret, n_a_1)
+                  call zgemm(str(transa), str(transb), m, n, k, cmplx(1, kind=kind(ret)), a, n_a_1, b, n_b_1, cmplx(0, kind=kind(ret)), ret, m)
                <%- else -%>
                   ret = matmul(<%= ntc_fn(ntca, 'a') %>, <%= ntc_fn(ntca, 'b') %>)
                <%- end -%>
             <%- else -%>
                <%- t, k = promote(a, b) -%>
-               call mul_<%= ntca %><%= ntcb %>(<%= converter(t) %>(a, kind=<%= k %>), <%= converter(t) %>(b, kind=<%= k %>), ret)
+               call mul_(<%= converter(t) %>(a, kind=<%= k %>), <%= converter(t) %>(b, kind=<%= k %>), ret, transa, transb)
             <%- end -%>
          end subroutine mul_<%= a %><%= b %><%= ntca %><%= ntcb %>
       <%- } -%>
    <%- } -%>
 
 
-   <%- (LOGICAL2S_LOGICAL1S + NUM2S_NUM1S).each{|a, b| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret, transa)
+   <%- T2S_U1S_NTCS.each{|a, b, ntcas| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
-         <%= declare_sizes(a, b) %>
-         <%= declare(a, b) %>, intent(out):: ret
-         Character(len=1), intent(in), optional:: transa
-         Character(len=len(transa)):: transa_
+         <%= declare21(a, b, :n) %>, intent(out):: ret
 
-         if(present(transa))then
-            transa_ = transa
-         else
-            transa_ = 'n'
-         end if
-
-         <%= set_sizes(a, b) %>
-         <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
-         <%- if ta == tb and (ta == :Logical or ta == :Integer) -%>
-            select case(transa_)
-            case('n', 'N')
-               ret = matmul(a, b)
-            case('t', 'T')
-               ret = matmul(transpose(a), b)
-            <%- if b.type == :Complex -%>
-               case('c', 'C')
-                  ret = matmul(transpose(conjg(a)), b)
-            <%- end -%>
-            case default
-               write(ERROR_UNIT, *) WHERE_AM_I, 'Unsupported `transa`: ', trim(transa_)
-               error stop
-            end select
-         <%- elsif ta == tb and ka == kb -%>
-            if(transa_ == 'n' .or. transa_ == 'N')then
-               ASSERT(n_a_2 == n_b_1)
-            else
-               ASSERT(n_a_1 == n_b_1)
-            end if
-            <%- if ta == :Real and ka == :REAL32 -%>
-               call sgemv(transa_, n_a_1, n_a_2, real(1, kind=kind(ret)), a, n_a_1, b, ONE, real(0, kind=kind(ret)), ret, ONE)
-            <%- elsif ta == :Real and ka == :REAL64 -%>
-               call dgemv(transa_, n_a_1, n_a_2, real(1, kind=kind(ret)), a, n_a_1, a, ONE, real(0, kind=kind(ret)), ret, ONE)
-            <%- elsif ta == :Complex and ka == :REAL32 -%>
-               call cgemv(transa_, n_a_1, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, a, ONE, cmplx(0, kind=kind(ret)), ret, ONE)
-            <%- elsif ta == :Complex and ka == :REAL64 -%>
-               call zgemv(transa_, n_a_1, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, a, ONE, cmplx(0, kind=kind(ret)), ret, ONE)
-            <%- else -%>
-               select case(transa_)
-               case('n', 'N')
-                  ret = matmul(a, b)
-               case('t', 'T')
-                  ret = matmul(transpose(a), b)
-               <%- if b.type == :Complex -%>
-                  case('c', 'C')
-                     ret = matmul(transpose(conjg(a)), b)
-               <%- end -%>
-               case default
-                  write(ERROR_UNIT, *) WHERE_AM_I, 'Unsupported `transa`: ', trim(transa_)
-                  error stop
-               end select
-            <%- end -%>
-         <%- else -%>
-            <%- t, k = promote(a, b) -%>
-            call mul_(<%= converter(t) %>(a, kind=<%= k %>), <%= converter(t) %>(b, kind=<%= k %>), ret, transa_)
-         <%- end -%>
+         call mul_(a, b, ret, TR_N)
       end subroutine mul_<%= a %><%= b %>
+
+      <% ntcas.each{|ntca| %>
+         subroutine mul_<%= a %><%= b %><%= ntca %>(a, b, ret, trans)
+            <%= a.declare %>, intent(in):: a
+            <%= b.declare %>, intent(in):: b
+            <%= declare21(a, b, ntca) %>, intent(out):: ret
+            type(<%= ntc_type_from_mode(ntca) %>), intent(in):: trans
+            <%= declare_sizes(a, b) %>
+
+            <%= set_sizes(a, b) %>
+            <%- ta = a.type; tb = b.type; ka = a.kind; kb = b.kind -%>
+            <%- if ta == tb and (ta == :Logical or ta == :Integer) -%>
+               ret = matmul(<%= ntc_fn(ntca, 'a') %>, b)
+            <%- elsif ta == tb and ka == kb -%>
+               ASSERT(n_a_<%= ntca == :n ? 2 : 1 %> == n_b_1)
+               <%- if ta == :Real and ka == :REAL32 -%>
+                  call sgemv(str(trans), n_a_1, n_a_2, real(1, kind=kind(ret)), a, n_a_1, b, ONE, real(0, kind=kind(ret)), ret, ONE)
+               <%- elsif ta == :Real and ka == :REAL64 -%>
+                  call dgemv(str(trans), n_a_1, n_a_2, real(1, kind=kind(ret)), a, n_a_1, a, ONE, real(0, kind=kind(ret)), ret, ONE)
+               <%- elsif ta == :Complex and ka == :REAL32 -%>
+                  call cgemv(str(trans), n_a_1, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, a, ONE, cmplx(0, kind=kind(ret)), ret, ONE)
+               <%- elsif ta == :Complex and ka == :REAL64 -%>
+                  call zgemv(str(trans), n_a_1, n_a_2, cmplx(1, kind=kind(ret)), a, n_a_1, a, ONE, cmplx(0, kind=kind(ret)), ret, ONE)
+               <%- else -%>
+                  ret = matmul(<%= ntc_fn(ntca, 'a') %>, b)
+               <%- end -%>
+            <%- else -%>
+               <%- t, k = promote(a, b) -%>
+               call mul_(<%= converter(t) %>(a, kind=<%= k %>), <%= converter(t) %>(b, kind=<%= k %>), ret, trans)
+            <%- end -%>
+         end subroutine mul_<%= a %><%= b %><%= ntca %>
+      <%- } -%>
    <%- } -%>
 
 
-   <%- (LOGICAL1S_LOGICAL2S + NUM1S_NUM2S).each{|a, b| -%>
-      subroutine mul_<%= a %><%= b %>(a, b, ret, transb)
+   <%- T1S_U2S_NTCS.each{|a, b, ntcbs| -%>
+      subroutine mul_<%= a %><%= b %>(a, b, ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
-         <%= declare_sizes(a, b) %>
-         <%= declare(a, b) %>, intent(out):: ret
-         Character(len=1), intent(in), optional:: transb
-         Character(len=len(transb)):: transb_
+         <%= declare12(a, b, :n) %>, intent(out):: ret
 
-         if(present(transb))then
-            transb_ = transb
-         else
-            transb_ = 'n'
-         end if
-
-         select case(transb_)
-         case('n', 'N')
-            call mul_(b, a, ret, 't')
-         case('t', 'T')
-            call mul_(b, a, ret, 'n')
-         <%- if b.type == :Complex -%>
-            case('c', 'C')
-               call mul_(conjg(b), a, ret, 'n')
-         <%- end -%>
-         case default
-            write(ERROR_UNIT, *) WHERE_AM_I, 'Unsupported `transb`: ', trim(transb_)
-            error stop
-         end select
+         call mul_(a, b, ret, TR_N)
       end subroutine mul_<%= a %><%= b %>
+
+      <%- ntcbs.each{|ntcb| -%>
+         subroutine mul_<%= a %><%= b %><%= ntcb %>(a, b, ret, trans)
+            <%= a.declare %>, intent(in):: a
+            <%= b.declare %>, intent(in):: b
+            <%= declare12(a, b, ntcb) %>, intent(out):: ret
+            type(<%= ntc_type_from_mode(ntcb) %>), intent(in):: trans
+
+            <%- if ntcb == :n -%>
+               call mul_(b, a, ret, TR_T)
+            <%- elsif ntcb == :t -%>
+               call mul_(b, a, ret, TR_N)
+            <%- elsif ntcb == :c -%>
+               call mul_(conjg(b), a, ret, TR_N)
+            <%- else -%>
+               unsupported ntcb: <%= ntcb %>
+            <%- end -%>
+         end subroutine mul_<%= a %><%= b %><%= ntcb %>
+      <%- } -%>
    <%- } -%>
 
 
@@ -268,8 +282,71 @@ contains
 
 
    ! `mul<T><U>`
+   <%- T2S_U1S_NTCS.each{|a, b, ntcs| -%>
+      function mul<%= a %><%= b %>(a, b) result(ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare21(a, b, :n) %>:: ret
 
-   <%- TYPES.each{|a, b| -%>
+         ret = mul(a, b, TR_N)
+      end function mul<%= a %><%= b %>
+
+      <%- ntcs.each{|ntc| -%>
+         function mul<%= a %><%= b %><%= ntc %>(a, b, trans) result(ret)
+            <%= a.declare %>, intent(in):: a
+            <%= b.declare %>, intent(in):: b
+            type(<%= ntc_type_from_mode(ntc) %>), intent(in):: trans
+            <%= declare21(a, b, ntc) %>:: ret
+
+            call mul_(a, b, ret, trans)
+         end function mul<%= a %><%= b %><%= ntc %>
+      <%- } -%>
+   <%- } -%>
+
+   <%- T1S_U2S_NTCS.each{|a, b, ntcs| -%>
+      function mul<%= a %><%= b %>(a, b) result(ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare12(a, b, :n) %>:: ret
+
+         ret = mul(a, b, TR_N)
+      end function mul<%= a %><%= b %>
+
+      <%- ntcs.each{|ntc| -%>
+         function mul<%= a %><%= b %><%= ntc %>(a, b, trans) result(ret)
+            <%= a.declare %>, intent(in):: a
+            <%= b.declare %>, intent(in):: b
+            type(<%= ntc_type_from_mode(ntc) %>), intent(in):: trans
+            <%= declare12(a, b, ntc) %>:: ret
+
+            call mul_(a, b, ret, trans)
+         end function mul<%= a %><%= b %><%= ntc %>
+      <%- } -%>
+   <%- } -%>
+
+   <%- T2S_U2S_NTCS.each{|a, b, ntcs| -%>
+      function mul<%= a %><%= b %>(a, b) result(ret)
+         <%= a.declare %>, intent(in):: a
+         <%= b.declare %>, intent(in):: b
+         <%= declare22(a, b, :n, :n) %>:: ret
+
+         ret = mul(a, b, TR_N, TR_N)
+      end function mul<%= a %><%= b %>
+
+      <% ntcs.each{|ntca, ntcb| %>
+         function mul<%= a %><%= b %><%= ntca %><%= ntcb %>(a, b, transa, transb) result(ret)
+            <%= a.declare %>, intent(in):: a
+            <%= b.declare %>, intent(in):: b
+            type(<%= ntc_type_from_mode(ntca) %>), intent(in):: transa
+            type(<%= ntc_type_from_mode(ntcb) %>), intent(in):: transb
+            <%= declare22(a, b, ntca, ntcb) %>:: ret
+
+            call mul_(a, b, ret, transa, transb)
+         end function mul<%= a %><%= b %><%= ntca %><%= ntcb %>
+      <% } %>
+   <%- } -%>
+
+   <%- (TYPES - (T1S_U2S + T2S_U1S + T2S_U2S)).each{|a, b| -%>
       function mul<%= a %><%= b %>(a, b) result(ret)
          <%= a.declare %>, intent(in):: a
          <%= b.declare %>, intent(in):: b
@@ -278,4 +355,26 @@ contains
          call mul_(a, b, ret)
       end function mul<%= a %><%= b %>
    <%- } -%>
+
+
+   function str_TransN(t) result(ret)
+      type(TransN), intent(in):: t
+      Character(len=1):: ret
+
+      ret = 'n'
+   end function str_TransN
+
+   function str_TransT(t) result(ret)
+      type(TransT), intent(in):: t
+      Character(len=1):: ret
+
+      ret = 't'
+   end function str_TransT
+
+   function str_TransC(t) result(ret)
+      type(TransC), intent(in):: t
+      Character(len=1):: ret
+
+      ret = 'c'
+   end function str_TransC
 end module lapack_lib

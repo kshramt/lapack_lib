@@ -70,7 +70,7 @@ lapack_lib.f90: lapack_lib_util.rb
 ## Executables
 
 ## Tests
-test/lapack_lib_test.exe: $(call o_mod,comparable_lib lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
+test/lapack_lib_test.exe: $(call o_mod,comparable_lib array_lib lapack_constant_lib lapack_interface_lib lapack_lib lapack_lib_test)
 
 test/lapack_lib_util.rb.tested: lapack_lib_util.rb
 	mkdir -p $(@D)
@@ -78,6 +78,10 @@ test/lapack_lib_util.rb.tested: lapack_lib_util.rb
 	touch $@
 
 src/comparable_lib.f90: dep/fortran_lib/src/comparable_lib.f90
+	mkdir -p $(@D)
+	cp -f $< $@
+
+src/array_lib.f90: dep/fortran_lib/src/array_lib.f90
 	mkdir -p $(@D)
 	cp -f $< $@
 
